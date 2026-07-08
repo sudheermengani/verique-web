@@ -31,7 +31,8 @@
       "Bash(pkill -f \"next-server\")",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/ --max-time 15)",
       "Bash(sips -g pixelWidth -g pixelHeight /Users/sudheer/Desktop/verique/public/verique-mark.png)",
-      "Bash(chmod +x /Users/sudheer/.verique-dev.sh)"
+      "Bash(chmod +x /Users/sudheer/.verique-dev.sh)",
+      "Bash(git config *)"
     ]
   }
 }

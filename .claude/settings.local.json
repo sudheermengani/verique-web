@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(unzip -l verique-website.zip)",
+      "Bash(unzip -l verique-co-uk.zip)",
+      "Bash(mkdir -p /tmp/vzip)",
+      "Bash(unzip -o -q verique-co-uk.zip -d /tmp/vzip)",
+      "Read(//tmp/vzip/verique-co-uk/**)",
+      "Bash(pnpm -v)",
+      "Bash(brew list *)",
+      "Bash([ -s \"$HOME/.nvm/nvm.sh\" ])",
+      "Bash(brew --version)",
+      "Read(//usr/local/bin/**)",
+      "Bash(brew search *)",
+      "Bash(curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh)",
+      "Bash(bash)",
+      "Bash(mkdir -p /private/tmp/claude-501/-Users-sudheer-Desktop-verique/cd0fab72-e48b-4549-909c-9a65ee0632e0/scratchpad/stash && mv /Users/sudheer/Desktop/verique/.claude /private/tmp/claude-501/-Users-sudheer-Desktop-verique/cd0fab72-e48b-4549-909c-9a65ee0632e0/scratchpad/stash/ 2>/dev/null; rm -f /Users/sudheer/Desktop/verique/.DS_Store; ls -la /Users/sudheer/Desktop/verique)",
+      "Bash(mkdir -p /Users/sudheer/Desktop/verique/src/app/services /Users/sudheer/Desktop/verique/src/app/services/\\\\[slug\\\\] /Users/sudheer/Desktop/verique/src/app/about /Users/sudheer/Desktop/verique/src/app/contact)",
+      "Bash(node -e \"const m = require\\('lucide-react'\\); console.log\\(Object.keys\\(m\\).filter\\(k => /instagram|facebook|megaphone|clapper|video|search|target|layout|workflow|zap/i.test\\(k\\)\\)\\)\")",
+      "Bash(node -e \"const m = require\\('lucide-react'\\); ['Target','Search','Clapperboard','LayoutTemplate','Workflow','Megaphone','Check','Menu'].forEach\\(k=>console.log\\(k, !!m[k]\\)\\)\")",
+      "Bash(cat > /Users/sudheer/Desktop/verique/.claude/launch.json 2>/dev/null; ls /Users/sudheer/Desktop/verique/.claude 2>&1; mkdir -p /Users/sudheer/Desktop/verique/.claude)",
+      "Bash(touch /usr/local/bin/.writetest)",
+      "Bash(rm -f /usr/local/bin/.writetest)",
+      "Bash(lsof -i :3000 -sTCP:LISTEN)",
+      "Bash(chmod +x /Users/sudheer/Desktop/verique/scripts/dev.sh)",
+      "Bash(chmod +x /private/tmp/claude-501/-Users-sudheer-Desktop-verique/cd0fab72-e48b-4549-909c-9a65ee0632e0/scratchpad/dev.sh)",
+      "Bash(/private/tmp/claude-501/-Users-sudheer-Desktop-verique/cd0fab72-e48b-4549-909c-9a65ee0632e0/scratchpad/dev.sh)",
+      "Bash(ps -p 30016 -o pid,ppid,command)",
+      "Bash(kill 30016)",
+      "Bash(pkill -f \"next dev\")",
+      "Bash(pkill -f \"next-server\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/ --max-time 15)",
+      "Bash(sips -g pixelWidth -g pixelHeight /Users/sudheer/Desktop/verique/public/verique-mark.png)",
+      "Bash(chmod +x /Users/sudheer/.verique-dev.sh)"
+    ]
+  }
+}

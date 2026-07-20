@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "verique-dev",
-      "runtimeExecutable": "/Users/sudheer/.verique-dev.sh",
-      "runtimeArgs": [],
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dev"],
       "port": 3000,
       "autoPort": true
     }

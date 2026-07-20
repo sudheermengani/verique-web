@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import { Bricolage_Grotesque, Figtree, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
-import { Header } from "@/components/site/header";
-import { Footer } from "@/components/site/footer";
 import { Toaster } from "@/components/ui/sonner";
 import { siteConfig } from "@/lib/site";
 
@@ -79,9 +77,7 @@ export default function RootLayout({
         />
       </head>
       <body className="flex min-h-screen flex-col overflow-x-hidden bg-paper text-ink">
-        <Header />
-        <main className="flex-1">{children}</main>
-        <Footer />
+        {children}
         <Toaster />
       </body>
     </html>

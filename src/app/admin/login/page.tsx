@@ -5,17 +5,17 @@ import { getSession } from "@/lib/ops/auth";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = {
-  title: "Ops sign in",
+  title: "Admin sign in",
   robots: { index: false, follow: false },
 };
 
-export default async function OpsLoginPage() {
-  if (await getSession()) redirect("/ops");
+export default async function AdminLoginPage() {
+  if (await getSession()) redirect("/admin");
   return (
     <div className="flex min-h-screen items-center justify-center bg-paper-tint px-4">
       <div className="w-full max-w-sm rounded-2xl border border-line bg-paper p-8 shadow-sm">
         <p className="font-mono text-xs tracking-widest text-slate uppercase">
-          Verique · Ops
+          Verique · Admin
         </p>
         <h1 className="mt-2 font-heading text-2xl font-semibold text-ink">
           Sign in

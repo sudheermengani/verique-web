@@ -3,19 +3,20 @@ import { Inbox } from "lucide-react";
 
 import {
   getClients,
+  getClient,
   getLeads,
-  getRecentRuns,
   getStats,
   LEAD_STATUSES,
   type LeadStatus,
 } from "@/lib/ops/queries";
-import { formatDate, formatDateTime, formatGBP } from "@/lib/ops/format";
+import { formatDate, formatGBP } from "@/lib/ops/format";
 import { StatusBadge } from "@/components/ops/status-badge";
+import { ShareToggle } from "@/components/ops/share-toggle";
 import { cn } from "@/lib/utils";
 
 const FILTERS = ["new", ...LEAD_STATUSES.filter((s) => s !== "new"), "all"] as const;
 
-export default async function OpsDashboard({
+export default async function AdminLeadsPage({
   searchParams,
 }: {
   searchParams: Promise<{ status?: string; client?: string }>;
@@ -23,14 +24,9 @@ export default async function OpsDashboard({
   const params = await searchParams;
   const clients = await getClients();
   if (clients.length === 0) {
-    return (
-      <EmptyCard
-        title="No clients yet"
-        body="Run the engine once (verique run <client>) and this dashboard will light up."
-      />
-    );
+    return <EmptyCard title="No clients yet" body="Run the engine to create one." />;
   }
-  const client =
+  const clientSlug =
     clients.find((c) => c.slug === params.client)?.slug ?? clients[0].slug;
   const status = (
     FILTERS.includes(params.status as (typeof FILTERS)[number])
@@ -38,28 +34,26 @@ export default async function OpsDashboard({
       : "new"
   ) as LeadStatus | "all";
 
-  const [stats, leads, runs] = await Promise.all([
-    getStats(client),
-    getLeads(client, status),
-    getRecentRuns(3),
+  const [client, stats, leads] = await Promise.all([
+    getClient(clientSlug),
+    getStats(clientSlug),
+    getLeads(clientSlug, status),
   ]);
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="font-heading text-xl font-semibold text-ink">
-            Lead pipeline
-          </h1>
+          <h1 className="font-heading text-xl font-semibold text-ink">Leads</h1>
           {clients.length > 1 ? (
-            <nav aria-label="Client" className="mt-1 flex gap-2">
+            <nav aria-label="Client" className="mt-1 flex flex-wrap gap-2">
               {clients.map((c) => (
                 <Link
                   key={c.slug}
-                  href={`/ops?client=${c.slug}&status=${status}`}
+                  href={`/admin/leads?client=${c.slug}&status=${status}`}
                   className={cn(
                     "rounded-md text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                    c.slug === client
+                    c.slug === clientSlug
                       ? "font-medium text-ink"
                       : "text-slate hover:text-ink",
                   )}
@@ -69,7 +63,10 @@ export default async function OpsDashboard({
               ))}
             </nav>
           ) : (
-            <p className="mt-1 text-sm text-slate">{clients[0].name}</p>
+            <p className="mt-1 text-sm text-slate">
+              {client?.name}
+              {client?.category ? ` · ${client.category}` : ""}
+            </p>
           )}
         </div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -87,7 +84,7 @@ export default async function OpsDashboard({
         {FILTERS.map((f) => (
           <Link
             key={f}
-            href={`/ops?client=${client}&status=${f}`}
+            href={`/admin/leads?client=${clientSlug}&status=${f}`}
             aria-current={f === status ? "page" : undefined}
             className={cn(
               "rounded-t-md px-3 py-2 text-sm capitalize focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
@@ -112,7 +109,7 @@ export default async function OpsDashboard({
         />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-line bg-paper">
-          <table className="w-full min-w-175 text-sm">
+          <table className="w-full min-w-200 text-sm">
             <thead>
               <tr className="border-b border-line text-left text-xs text-slate">
                 <th scope="col" className="px-4 py-3 font-medium">Score</th>
@@ -121,6 +118,7 @@ export default async function OpsDashboard({
                 <th scope="col" className="px-4 py-3 text-right font-medium">Value</th>
                 <th scope="col" className="px-4 py-3 font-medium">Awarded</th>
                 <th scope="col" className="px-4 py-3 font-medium">Status</th>
+                <th scope="col" className="px-4 py-3 font-medium">Client page</th>
               </tr>
             </thead>
             <tbody>
@@ -131,7 +129,7 @@ export default async function OpsDashboard({
                   </td>
                   <td className="max-w-xs px-4 py-3">
                     <Link
-                      href={`/ops/leads/${lead.id}`}
+                      href={`/admin/leads/${lead.id}`}
                       className="line-clamp-2 rounded-md font-medium text-ink hover:text-blue focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                     >
                       {lead.title || lead.ocid}
@@ -155,31 +153,15 @@ export default async function OpsDashboard({
                   <td className="px-4 py-3">
                     <StatusBadge status={lead.status} />
                   </td>
+                  <td className="px-4 py-3">
+                    <ShareToggle leadId={lead.id} shared={lead.shared} />
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
-
-      <section aria-label="Recent engine runs" className="text-xs text-slate">
-        <h2 className="mb-1 font-medium text-ink">Recent engine runs</h2>
-        {runs.length === 0 ? (
-          <p>No runs recorded yet.</p>
-        ) : (
-          <ul className="space-y-0.5">
-            {runs.map((run) => (
-              <li key={run.id}>
-                {formatDateTime(run.started_at)} — {run.client_slug}:{" "}
-                {Object.entries(run.source_counts as Record<string, number>)
-                  .map(([k, v]) => `${k} ${v}`)
-                  .join(", ") || "no sources"}{" "}
-                → {run.new_leads} new lead{run.new_leads === 1 ? "" : "s"}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { getLead, getLeadEvents, LEAD_STATUSES } from "@/lib/ops/queries";
 import { setLeadStatusAction } from "../../../actions";
 import { formatDate, formatDateTime, formatGBPFull } from "@/lib/ops/format";
 import { StatusBadge } from "@/components/ops/status-badge";
+import { ShareToggle } from "@/components/ops/share-toggle";
 import { PendingButton } from "@/components/ops/pending-button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -25,10 +26,10 @@ export default async function LeadDetailPage({
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <Link
-        href="/ops"
+        href={`/admin/leads?client=${lead.client_slug}`}
         className="inline-flex items-center gap-1 rounded-md text-sm text-slate hover:text-ink focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
-        <ArrowLeft className="size-4" aria-hidden /> Back to pipeline
+        <ArrowLeft className="size-4" aria-hidden /> Back to leads
       </Link>
 
       <header className="space-y-2">
@@ -37,6 +38,9 @@ export default async function LeadDetailPage({
             {lead.score}
           </span>
           <StatusBadge status={lead.status} />
+          <span className="ml-auto">
+            <ShareToggle leadId={lead.id} shared={lead.shared} />
+          </span>
         </div>
         <h1 className="font-heading text-2xl font-semibold text-balance text-ink">
           {lead.title || lead.ocid}

@@ -27,6 +27,23 @@ export type ClientWithStats = Client & {
   pipeline_gbp: number;
 };
 
+export type Enrichment = {
+  address?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  contact_name?: string | null;
+  website?: string | null;
+  sources?: string[];
+  // Companies House
+  company_number?: string | null;
+  status?: string | null;
+  registered_office?: string | null;
+  companies_house_url?: string | null;
+  directors?: string[];
+  incorporated?: string | null;
+  sic_codes?: string[];
+};
+
 export type LeadRow = {
   id: number;
   score: number;
@@ -42,6 +59,7 @@ export type LeadRow = {
   value_gbp: number | null;
   award_date: string | null;
   evidence_url: string;
+  enrichment: Enrichment | null;
 };
 
 export type LeadDetail = LeadRow & {
@@ -69,7 +87,7 @@ export type Stats = {
 const LEAD_SELECT = sql`
   l.id, l.score, l.status, l.sector_hint, l.region_hit, l.shared, l.created_at,
   n.ocid, n.title, n.buyer, n.winners, n.value_gbp::float8 as value_gbp,
-  n.award_date::text as award_date, n.evidence_url
+  n.award_date::text as award_date, n.evidence_url, n.enrichment
 `;
 
 export async function getClients(): Promise<{ slug: string; name: string }[]> {

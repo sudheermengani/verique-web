@@ -71,6 +71,16 @@ export default async function ClientPage({
                 <Field label="Buyer">{lead.buyer || "—"}</Field>
                 <Field label="Value">{formatGBPFull(lead.value_gbp)}</Field>
                 <Field label="Awarded">{formatDate(lead.award_date)}</Field>
+                {lead.enrichment?.phone && (
+                  <Field label="Phone">
+                    <a href={`tel:${lead.enrichment.phone}`} className="text-blue hover:underline">
+                      {lead.enrichment.phone}
+                    </a>
+                  </Field>
+                )}
+                {lead.enrichment?.address && (
+                  <Field label="Address">{lead.enrichment.address}</Field>
+                )}
               </dl>
               <a
                 href={lead.evidence_url}

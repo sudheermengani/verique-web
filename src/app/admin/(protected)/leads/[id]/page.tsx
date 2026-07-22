@@ -7,6 +7,7 @@ import { setLeadStatusAction } from "../../../actions";
 import { formatDate, formatDateTime, formatGBPFull } from "@/lib/ops/format";
 import { StatusBadge } from "@/components/ops/status-badge";
 import { ShareToggle } from "@/components/ops/share-toggle";
+import { ContactCard } from "@/components/ops/contact-card";
 import { PendingButton } from "@/components/ops/pending-button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -76,6 +77,8 @@ export default async function LeadDetailPage({
           </a>
         </div>
       </dl>
+
+      <ContactCard enrichment={lead.enrichment} winner={lead.winners[0]?.name} />
 
       {lead.description && (
         <section aria-label="Notice description">

@@ -9,6 +9,7 @@ import { StatusBadge } from "@/components/ops/status-badge";
 import { ShareToggle } from "@/components/ops/share-toggle";
 import { ContactCard } from "@/components/ops/contact-card";
 import { BriefCard } from "@/components/ops/brief-card";
+import { EditLeadDetails } from "@/components/ops/edit-lead-details";
 import { PendingButton } from "@/components/ops/pending-button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -110,6 +111,12 @@ export default async function LeadDetailPage({
           </p>
         </section>
       )}
+
+      <EditLeadDetails
+        leadId={lead.id}
+        description={lead.description}
+        enrichment={lead.enrichment}
+      />
 
       <form
         action={setLeadStatusAction}

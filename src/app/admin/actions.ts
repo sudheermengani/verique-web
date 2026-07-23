@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
 
 import { sql } from "@/lib/ops/db";
 import {
@@ -12,8 +11,14 @@ import {
   requireSession,
   verifyCredentials,
 } from "@/lib/ops/auth";
-import { LEAD_STATUSES, slugExists, type LeadStatus } from "@/lib/ops/queries";
+import {
+  LEAD_STATUSES,
+  slugExists,
+  type Enrichment,
+  type LeadStatus,
+} from "@/lib/ops/queries";
 import { sendMagicLink } from "@/lib/ops/email";
+import { appBaseUrl, isSafeHttpUrl } from "@/lib/ops/url";
 import { configSchema, DEFAULT_CONFIG } from "@/lib/ops/client-config";
 import { triggerScan } from "@/lib/ops/scan";
 
@@ -121,10 +126,7 @@ export async function sendClientLinkAction(formData: FormData): Promise<void> {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   if (!slug || !email) return;
   const token = createMagicToken(email, slug);
-  const h = await headers();
-  const host = h.get("host") ?? "localhost:3000";
-  const proto = h.get("x-forwarded-proto") ?? "http";
-  const url = `${proto}://${host}/client/auth?token=${encodeURIComponent(token)}`;
+  const url = `${await appBaseUrl()}/client/auth?token=${encodeURIComponent(token)}`;
   await sendMagicLink(email, url);
   revalidatePath(`/admin/clients/${slug}`);
 }
@@ -239,6 +241,9 @@ export async function addLeadManuallyAction(
   if (!client) return { error: "Choose a client." };
   if (!title) return { error: "Title is required." };
   if (!winner) return { error: "Winner / company name is required." };
+  if (!isSafeHttpUrl(evidenceUrl)) {
+    return { error: "Evidence link must be a normal http(s) URL." };
+  }
 
   const score = scoreRaw ? Number(scoreRaw) : 60;
   if (!Number.isFinite(score)) return { error: "Score must be a number." };
@@ -253,24 +258,29 @@ export async function addLeadManuallyAction(
 
   const ocid = `manual-${crypto.randomUUID()}`;
 
-  await sql`
-    insert into notices (
-      ocid, source, title, buyer, description, cpv_codes, winners,
-      value_gbp, award_date, evidence_url, site_address, site_address_precise,
-      first_seen_at, updated_at
-    ) values (
-      ${ocid}, 'manual', ${title}, ${buyer}, ${description}, ${sql.json([])},
-      ${sql.json([{ name: winner, id: "" }])}, ${value}, ${awardDateRaw || null},
-      ${evidenceUrl}, ${siteAddress}, ${siteAddress.length > 0}, now(), now()
-    )`;
+  // Both inserts in one transaction — otherwise a failure on the second
+  // (e.g. a race with the client being deleted) would leave an orphaned
+  // notice with no lead pointing at it.
+  const [row] = await sql.begin(async (tx) => {
+    await tx`
+      insert into notices (
+        ocid, source, title, buyer, description, cpv_codes, winners,
+        value_gbp, award_date, evidence_url, site_address, site_address_precise,
+        first_seen_at, updated_at
+      ) values (
+        ${ocid}, 'manual', ${title}, ${buyer}, ${description}, ${sql.json([])},
+        ${sql.json([{ name: winner, id: "" }])}, ${value}, ${awardDateRaw || null},
+        ${evidenceUrl}, ${siteAddress}, ${siteAddress.length > 0}, now(), now()
+      )`;
 
-  const [row] = await sql<{ id: number }[]>`
-    insert into leads (
-      client_slug, ocid, score, sector_hint, region_hit, status, shared, created_at
-    ) values (
-      ${client}, ${ocid}, ${score}, ${sectorHint}, '', 'new', false, now()
-    )
-    returning id`;
+    return tx<{ id: number }[]>`
+      insert into leads (
+        client_slug, ocid, score, sector_hint, region_hit, status, shared, created_at
+      ) values (
+        ${client}, ${ocid}, ${score}, ${sectorHint}, '', 'new', false, now()
+      )
+      returning id`;
+  });
 
   revalidatePath("/admin/leads");
   redirect(`/admin/leads/${row.id}`);
@@ -289,5 +299,60 @@ export async function runScanNowAction(
   const client = String(formData.get("client") ?? "").trim();
   const result = await triggerScan({ client: client || undefined });
   if (!result.ok) return { error: result.error };
+  return { ok: true };
+}
+
+export type EditLeadState = { ok?: boolean; error?: string };
+
+/** Notice-level edits (description, contact fields) — these live on the
+ * shared `notices` row, not the lead, so they apply everywhere this same
+ * award shows up. That's the same sharing model enrichment already uses. */
+export async function updateLeadDetailsAction(
+  _prev: EditLeadState,
+  formData: FormData,
+): Promise<EditLeadState> {
+  await requireSession();
+  const leadId = Number(formData.get("lead_id"));
+  if (!Number.isInteger(leadId)) return { error: "Invalid lead." };
+
+  const description = String(formData.get("description") ?? "");
+  const contactName = String(formData.get("contact_name") ?? "").trim();
+  const phone = String(formData.get("phone") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim();
+  const address = String(formData.get("address") ?? "").trim();
+  const website = String(formData.get("website") ?? "").trim();
+  const websiteUrl = website && !website.startsWith("http") ? `https://${website}` : website;
+  if (!isSafeHttpUrl(websiteUrl)) {
+    return { error: "Website must be a normal http(s) URL." };
+  }
+
+  const [row] = await sql<{ ocid: string; enrichment: Enrichment | null }[]>`
+    select n.ocid, n.enrichment from leads l
+    join notices n on n.ocid = l.ocid
+    where l.id = ${leadId}`;
+  if (!row) return { error: "Lead not found." };
+
+  const enrichment: Enrichment = { ...(row.enrichment ?? {}) };
+  const setOrClear = (key: keyof Enrichment, value: string) => {
+    if (value) enrichment[key] = value as never;
+    else delete enrichment[key];
+  };
+  setOrClear("contact_name", contactName);
+  setOrClear("phone", phone);
+  setOrClear("email", email);
+  setOrClear("address", address);
+  setOrClear("website", website);
+  const sources = new Set(
+    Array.isArray(enrichment.sources) ? (enrichment.sources as string[]) : [],
+  );
+  sources.add("manual");
+  enrichment.sources = [...sources];
+
+  await sql`
+    update notices set description = ${description}, enrichment = ${sql.json(enrichment)}
+    where ocid = ${row.ocid}`;
+  revalidatePath(`/admin/leads/${leadId}`);
+  revalidatePath("/admin/leads");
+  revalidatePath("/client", "layout");
   return { ok: true };
 }

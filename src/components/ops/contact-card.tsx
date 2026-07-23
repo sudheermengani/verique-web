@@ -22,6 +22,7 @@ const SOURCE_LABEL: Record<string, string> = {
   award_notice: "award notice",
   companies_house: "Companies House",
   website: "company website",
+  manual: "manual edit",
 };
 
 // "SURNAME, First Middle, Title" → "First Surname"

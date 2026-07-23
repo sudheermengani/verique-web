@@ -2,33 +2,32 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 
-import { getLead, getLeadEvents, LEAD_STATUSES } from "@/lib/ops/queries";
-import { setLeadStatusAction } from "../../../actions";
-import { formatDate, formatDateTime, formatGBPFull } from "@/lib/ops/format";
+import { getLead } from "@/lib/ops/queries";
+import { formatDate, formatGBPFull } from "@/lib/ops/format";
 import { StatusBadge } from "@/components/ops/status-badge";
-import { ShareToggle } from "@/components/ops/share-toggle";
 import { ContactCard } from "@/components/ops/contact-card";
 import { BriefCard } from "@/components/ops/brief-card";
-import { PendingButton } from "@/components/ops/pending-button";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 
-export default async function LeadDetailPage({
+export default async function ClientLeadDetailPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ slug: string; id: string }>;
 }) {
-  const { id } = await params;
+  const { slug, id } = await params;
   const leadId = Number(id);
   if (!Number.isInteger(leadId)) notFound();
+
   const lead = await getLead(leadId);
-  if (!lead) notFound();
-  const events = await getLeadEvents(leadId);
+  // Only ever show a lead that belongs to this client AND has actually been
+  // shared — access to /client/[slug] is already gated by the layout, but a
+  // client must never see another client's data, or anything not yet
+  // curated for them, even by guessing an id in the URL.
+  if (!lead || lead.client_slug !== slug || !lead.shared) notFound();
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <Link
-        href={`/admin/leads?client=${lead.client_slug}`}
+        href={`/client/${slug}`}
         className="inline-flex items-center gap-1 rounded-md text-sm text-slate hover:text-ink focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
         <ArrowLeft className="size-4" aria-hidden /> Back to leads
@@ -40,9 +39,6 @@ export default async function LeadDetailPage({
             {lead.score}
           </span>
           <StatusBadge status={lead.status} />
-          <span className="ml-auto">
-            <ShareToggle leadId={lead.id} shared={lead.shared} />
-          </span>
         </div>
         <h1 className="font-heading text-2xl font-semibold text-balance text-ink">
           {lead.title || lead.ocid}
@@ -110,69 +106,6 @@ export default async function LeadDetailPage({
           </p>
         </section>
       )}
-
-      <form
-        action={setLeadStatusAction}
-        className="space-y-4 rounded-xl border border-line bg-paper p-5"
-      >
-        <input type="hidden" name="lead_id" value={lead.id} />
-        <fieldset className="space-y-2">
-          <legend className="text-sm font-medium text-ink">Log outcome</legend>
-          <p className="text-xs text-slate">
-            Every call gets logged — outcomes tune the scoring.
-          </p>
-          <div className="flex flex-wrap gap-2 pt-1">
-            {LEAD_STATUSES.map((s) => (
-              <label
-                key={s}
-                className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-line px-3 py-2 text-sm capitalize select-none has-checked:border-ink has-checked:bg-ink has-checked:text-paper has-focus-visible:ring-2 has-focus-visible:ring-ring has-focus-visible:ring-offset-2"
-              >
-                <input
-                  type="radio"
-                  name="status"
-                  value={s}
-                  defaultChecked={s === lead.status}
-                  className="sr-only"
-                />
-                {s}
-              </label>
-            ))}
-          </div>
-        </fieldset>
-        <div className="space-y-1.5">
-          <Label htmlFor="note">Note (optional)</Label>
-          <Textarea
-            id="note"
-            name="note"
-            rows={2}
-            placeholder="e.g. Spoke to contracts manager — needs groundworkers from mid-August"
-          />
-        </div>
-        <PendingButton>Save outcome</PendingButton>
-      </form>
-
-      <section aria-label="Outcome history">
-        <h2 className="mb-2 text-sm font-medium text-ink">History</h2>
-        {events.length === 0 ? (
-          <p className="text-sm text-slate">
-            No outcomes logged yet. First call goes here.
-          </p>
-        ) : (
-          <ol className="space-y-2">
-            {events.map((e) => (
-              <li key={e.id} className="rounded-lg border border-line bg-paper px-4 py-2.5 text-sm">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium text-ink capitalize">{e.status}</span>
-                  <time className="text-xs text-slate">
-                    {formatDateTime(e.created_at)}
-                  </time>
-                </div>
-                {e.note && <p className="mt-0.5 text-slate">{e.note}</p>}
-              </li>
-            ))}
-          </ol>
-        )}
-      </section>
     </div>
   );
 }
@@ -185,4 +118,3 @@ function Item({ label, children }: { label: string; children: React.ReactNode })
     </div>
   );
 }
-

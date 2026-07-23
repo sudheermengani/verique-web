@@ -1,5 +1,6 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ExternalLink, Sparkles } from "lucide-react";
+import { ArrowUpRight, ExternalLink, Sparkles } from "lucide-react";
 
 import { getClient, getSharedLeads } from "@/lib/ops/queries";
 import { formatDate, formatGBP, formatGBPFull } from "@/lib/ops/format";
@@ -82,14 +83,22 @@ export default async function ClientPage({
                   <Field label="Address">{lead.enrichment.address}</Field>
                 )}
               </dl>
-              <a
-                href={lead.evidence_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-3 inline-flex items-center gap-1 rounded-md text-sm font-medium text-blue hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-              >
-                Official award notice <ExternalLink className="size-3.5" aria-hidden />
-              </a>
+              <div className="mt-3 flex flex-wrap items-center gap-4">
+                <Link
+                  href={`/client/${slug}/leads/${lead.id}`}
+                  className="inline-flex items-center gap-1 rounded-md text-sm font-medium text-blue hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                >
+                  Full details, brief & contact <ArrowUpRight className="size-3.5" aria-hidden />
+                </Link>
+                <a
+                  href={lead.evidence_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 rounded-md text-sm text-slate hover:text-ink focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                >
+                  Official award notice <ExternalLink className="size-3.5" aria-hidden />
+                </a>
+              </div>
             </li>
           ))}
         </ul>

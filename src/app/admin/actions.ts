@@ -15,6 +15,7 @@ import {
 import { LEAD_STATUSES, slugExists, type LeadStatus } from "@/lib/ops/queries";
 import { sendMagicLink } from "@/lib/ops/email";
 import { configSchema, DEFAULT_CONFIG } from "@/lib/ops/client-config";
+import { triggerScan } from "@/lib/ops/scan";
 
 export type LoginState = { error?: string };
 
@@ -206,5 +207,87 @@ export async function updateClientConfigAction(
   await sql`update clients set config = ${sql.json(result.data)} where slug = ${slug}`;
   revalidatePath("/admin", "layout");
   revalidatePath("/client", "layout");
+  return { ok: true };
+}
+
+export type AddLeadState = { error?: string };
+
+/** Manually add a lead the engine didn't catch — a real tip, a private
+ * subcontractor-opportunity notice (like Kier's own supplier marketplace
+ * listings, which aren't award notices our OCDS sources ever ingest), or a
+ * correction for a false negative. Creates a synthetic notice (ocid
+ * "manual-<uuid>") so it renders through the exact same lead detail/list
+ * views as a scanned one. */
+export async function addLeadManuallyAction(
+  _prev: AddLeadState,
+  formData: FormData,
+): Promise<AddLeadState> {
+  await requireSession();
+
+  const client = String(formData.get("client") ?? "").trim();
+  const title = String(formData.get("title") ?? "").trim();
+  const buyer = String(formData.get("buyer") ?? "").trim();
+  const winner = String(formData.get("winner") ?? "").trim();
+  const valueRaw = String(formData.get("value_gbp") ?? "").trim();
+  const awardDateRaw = String(formData.get("award_date") ?? "").trim();
+  const evidenceUrl = String(formData.get("evidence_url") ?? "").trim();
+  const siteAddress = String(formData.get("site_address") ?? "").trim();
+  const description = String(formData.get("description") ?? "").trim();
+  const sectorHint = String(formData.get("sector_hint") ?? "").trim() || "manual";
+  const scoreRaw = String(formData.get("score") ?? "").trim();
+
+  if (!client) return { error: "Choose a client." };
+  if (!title) return { error: "Title is required." };
+  if (!winner) return { error: "Winner / company name is required." };
+
+  const score = scoreRaw ? Number(scoreRaw) : 60;
+  if (!Number.isFinite(score)) return { error: "Score must be a number." };
+
+  let value: number | null = null;
+  if (valueRaw) {
+    value = Number(valueRaw);
+    if (!Number.isFinite(value)) return { error: "Value must be a number." };
+  }
+
+  if (!(await slugExists(client))) return { error: "Unknown client." };
+
+  const ocid = `manual-${crypto.randomUUID()}`;
+
+  await sql`
+    insert into notices (
+      ocid, source, title, buyer, description, cpv_codes, winners,
+      value_gbp, award_date, evidence_url, site_address, site_address_precise,
+      first_seen_at, updated_at
+    ) values (
+      ${ocid}, 'manual', ${title}, ${buyer}, ${description}, ${sql.json([])},
+      ${sql.json([{ name: winner, id: "" }])}, ${value}, ${awardDateRaw || null},
+      ${evidenceUrl}, ${siteAddress}, ${siteAddress.length > 0}, now(), now()
+    )`;
+
+  const [row] = await sql<{ id: number }[]>`
+    insert into leads (
+      client_slug, ocid, score, sector_hint, region_hit, status, shared, created_at
+    ) values (
+      ${client}, ${ocid}, ${score}, ${sectorHint}, '', 'new', false, now()
+    )
+    returning id`;
+
+  revalidatePath("/admin/leads");
+  redirect(`/admin/leads/${row.id}`);
+}
+
+export type ScanState = { ok?: boolean; error?: string };
+
+/** Kicks off the engine's GitHub Actions workflow on demand — a shorter
+ * lookback and a bigger brief catch-up limit than the daily cron, since
+ * "run now" means "catch me up", not "repeat today's incremental scan". */
+export async function runScanNowAction(
+  _prev: ScanState,
+  formData: FormData,
+): Promise<ScanState> {
+  await requireSession();
+  const client = String(formData.get("client") ?? "").trim();
+  const result = await triggerScan({ client: client || undefined });
+  if (!result.ok) return { error: result.error };
   return { ok: true };
 }

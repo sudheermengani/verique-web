@@ -34,6 +34,7 @@ function toEdit(c: ClientConfig) {
     sources: c.sources,
     cpv_prefixes: join(c.qualify.cpv_prefixes),
     fallback_keywords: join(c.qualify.fallback_keywords),
+    exclude_keywords: join(c.qualify.exclude_keywords),
     min_value: c.qualify.min_value_gbp?.toString() ?? "",
     require_region: c.qualify.require_region,
     regions: c.regions.map((r) => ({
@@ -70,6 +71,7 @@ function toConfig(e: EditState): ClientConfig {
     qualify: {
       cpv_prefixes: csv(e.cpv_prefixes),
       fallback_keywords: csv(e.fallback_keywords),
+      exclude_keywords: csv(e.exclude_keywords),
       min_value_gbp: numOrNull(e.min_value),
       require_region: e.require_region,
     },
@@ -181,6 +183,21 @@ export function ConfigEditor({
           />
           <p className="text-xs text-slate">
             Comma-separated. Used when a notice has missing/wrong CPV codes.
+          </p>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="ek">Exclude keywords</Label>
+          <Textarea
+            id="ek"
+            rows={2}
+            value={e.exclude_keywords}
+            onChange={(ev) => set({ exclude_keywords: ev.target.value })}
+          />
+          <p className="text-xs text-slate">
+            Comma-separated. Vetoes a match even if the CPV code or a fallback
+            keyword matched — e.g. a broad &ldquo;45&rdquo; CPV prefix covers
+            kitchen fit-outs as well as groundworks, so add &ldquo;kitchen&rdquo;
+            here to drop those.
           </p>
         </div>
         <div className="flex flex-wrap items-end gap-4">

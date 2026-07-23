@@ -31,6 +31,7 @@ export const configSchema = z.object({
   qualify: z.object({
     cpv_prefixes: z.array(z.string()),
     fallback_keywords: z.array(z.string()),
+    exclude_keywords: z.array(z.string()),
     min_value_gbp: z.number().nullable(),
     require_region: z.boolean(),
   }),
@@ -62,6 +63,7 @@ export const DEFAULT_CONFIG: ClientConfig = {
   qualify: {
     cpv_prefixes: ["45"],
     fallback_keywords: ["construction", "civil engineering", "groundworks"],
+    exclude_keywords: [],
     min_value_gbp: 250000,
     require_region: false,
   },

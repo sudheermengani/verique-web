@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Inbox } from "lucide-react";
+import { Inbox, Plus } from "lucide-react";
 
 import {
   getClients,
@@ -13,6 +13,7 @@ import { formatDate, formatGBP } from "@/lib/ops/format";
 import { StatusBadge } from "@/components/ops/status-badge";
 import { ShareToggle } from "@/components/ops/share-toggle";
 import { LeadFilterBar } from "@/components/ops/lead-filter-bar";
+import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const FILTERS = ["new", ...LEAD_STATUSES.filter((s) => s !== "new"), "all"] as const;
@@ -79,11 +80,16 @@ export default async function AdminLeadsPage({
               : clients.find((c) => c.slug === clientSlug)?.name}
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <StatTile label="Open leads" value={String(stats.open)} />
-          <StatTile label="Open pipeline" value={formatGBP(stats.pipeline_gbp)} />
-          <StatTile label="Conversations" value={String(stats.conversations)} />
-          <StatTile label="Requirements" value={String(stats.requirements)} highlight />
+        <div className="flex items-end gap-3">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <StatTile label="Open leads" value={String(stats.open)} />
+            <StatTile label="Open pipeline" value={formatGBP(stats.pipeline_gbp)} />
+            <StatTile label="Conversations" value={String(stats.conversations)} />
+            <StatTile label="Requirements" value={String(stats.requirements)} highlight />
+          </div>
+          <Link href="/admin/leads/new" className={buttonVariants({ size: "sm" })}>
+            <Plus className="size-3.5" aria-hidden /> Add lead
+          </Link>
         </div>
       </div>
 

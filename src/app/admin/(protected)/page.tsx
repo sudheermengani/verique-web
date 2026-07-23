@@ -4,6 +4,7 @@ import { ArrowUpRight, Plus, Users } from "lucide-react";
 import { getClientsWithStats } from "@/lib/ops/queries";
 import { formatGBP } from "@/lib/ops/format";
 import { buttonVariants } from "@/components/ui/button";
+import { RunScanButton } from "@/components/ops/run-scan-button";
 
 const KIND_LABEL: Record<string, string> = {
   lead_engine: "Lead engine",
@@ -22,9 +23,12 @@ export default async function AdminClientsPage() {
             {clients.length} active {clients.length === 1 ? "client" : "clients"}
           </p>
         </div>
-        <Link href="/admin/clients/new" className={buttonVariants({ size: "sm" })}>
-          <Plus className="size-3.5" aria-hidden /> Add client
-        </Link>
+        <div className="flex items-center gap-2">
+          <RunScanButton label="Run scan now (all clients)" />
+          <Link href="/admin/clients/new" className={buttonVariants({ size: "sm" })}>
+            <Plus className="size-3.5" aria-hidden /> Add client
+          </Link>
+        </div>
       </div>
 
       {clients.length === 0 ? (
@@ -54,9 +58,14 @@ export default async function AdminClientsPage() {
                     {c.category || "—"} · {KIND_LABEL[c.kind] ?? c.kind}
                   </p>
                 </div>
-                <span className="rounded-full border border-line px-2 py-0.5 text-[0.65rem] text-slate">
-                  {c.retainer_gbp ? `${formatGBP(c.retainer_gbp)}/mo` : "no retainer set"}
-                </span>
+                <div className="flex flex-col items-end gap-2">
+                  <span className="rounded-full border border-line px-2 py-0.5 text-[0.65rem] text-slate">
+                    {c.retainer_gbp ? `${formatGBP(c.retainer_gbp)}/mo` : "no retainer set"}
+                  </span>
+                  {c.kind === "lead_engine" && (
+                    <RunScanButton client={c.slug} label="Run now" />
+                  )}
+                </div>
               </div>
 
               <dl className="mt-4 grid grid-cols-3 gap-2 text-center">

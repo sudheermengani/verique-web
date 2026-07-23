@@ -60,6 +60,8 @@ export type LeadRow = {
   award_date: string | null;
   evidence_url: string;
   enrichment: Enrichment | null;
+  site_address: string;
+  site_address_precise: boolean;
   client_slug: string;
   client_name: string;
 };
@@ -100,7 +102,7 @@ const LEAD_SELECT = sql`
   l.id, l.score, l.status, l.sector_hint, l.region_hit, l.shared, l.created_at,
   n.ocid, n.title, n.buyer, n.winners, n.value_gbp::float8 as value_gbp,
   n.award_date::text as award_date, n.evidence_url, n.enrichment,
-  l.client_slug, c.name as client_name
+  n.site_address, n.site_address_precise, l.client_slug, c.name as client_name
 `;
 const LEAD_FROM = sql`
   from leads l

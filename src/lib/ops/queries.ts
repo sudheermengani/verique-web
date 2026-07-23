@@ -60,6 +60,8 @@ export type LeadRow = {
   award_date: string | null;
   evidence_url: string;
   enrichment: Enrichment | null;
+  client_slug: string;
+  client_name: string;
 };
 
 export type CallBrief = {
@@ -97,7 +99,13 @@ export type Stats = {
 const LEAD_SELECT = sql`
   l.id, l.score, l.status, l.sector_hint, l.region_hit, l.shared, l.created_at,
   n.ocid, n.title, n.buyer, n.winners, n.value_gbp::float8 as value_gbp,
-  n.award_date::text as award_date, n.evidence_url, n.enrichment
+  n.award_date::text as award_date, n.evidence_url, n.enrichment,
+  l.client_slug, c.name as client_name
+`;
+const LEAD_FROM = sql`
+  from leads l
+  join notices n on n.ocid = l.ocid
+  join clients c on c.slug = l.client_slug
 `;
 
 export async function getClients(): Promise<{ slug: string; name: string }[]> {
@@ -148,7 +156,7 @@ export async function slugExists(slug: string): Promise<boolean> {
   return rows.length > 0;
 }
 
-export async function getStats(client: string): Promise<Stats> {
+export async function getStats(client?: string): Promise<Stats> {
   const [row] = await sql`
     select
       count(*) filter (where l.status = 'new')::int as open,
@@ -157,38 +165,61 @@ export async function getStats(client: string): Promise<Stats> {
       count(*) filter (where l.status = 'requirement')::int as requirements,
       coalesce(sum(n.value_gbp) filter (where l.status = 'new'), 0)::float8 as pipeline_gbp
     from leads l join notices n on n.ocid = l.ocid
-    where l.client_slug = ${client}`;
+    where ${client && client !== "all" ? sql`l.client_slug = ${client}` : sql`true`}`;
   return row as Stats;
 }
 
-/** Admin workbench: leads for a client, optionally filtered by status. */
-export async function getLeads(
-  client: string,
-  status: LeadStatus | "all",
-): Promise<LeadRow[]> {
+export const LEAD_SORTS = ["score", "newest", "oldest", "value"] as const;
+export type LeadSort = (typeof LEAD_SORTS)[number];
+
+const SORT_CLAUSE: Record<LeadSort, ReturnType<typeof sql>> = {
+  score: sql`l.score desc, l.created_at desc`,
+  newest: sql`l.created_at desc`,
+  oldest: sql`l.created_at asc`,
+  value: sql`n.value_gbp desc nulls last, l.score desc`,
+};
+
+export type LeadFilters = {
+  client?: string; // slug, or omit/"all" for every client
+  status?: LeadStatus | "all";
+  minScore?: number;
+  minValue?: number;
+  sort?: LeadSort;
+};
+
+/** Admin workbench: leads across one or all clients, filterable and sortable. */
+export async function getLeads(filters: LeadFilters = {}): Promise<LeadRow[]> {
+  const {
+    client,
+    status = "new",
+    minScore = 0,
+    minValue = 0,
+    sort = "score",
+  } = filters;
   return sql<LeadRow[]>`
     select ${LEAD_SELECT}
-    from leads l join notices n on n.ocid = l.ocid
-    where l.client_slug = ${client}
+    ${LEAD_FROM}
+    where ${client && client !== "all" ? sql`l.client_slug = ${client}` : sql`true`}
       and ${status === "all" ? sql`true` : sql`l.status = ${status}`}
-    order by l.score desc, l.created_at desc
-    limit 200`;
+      and l.score >= ${minScore}
+      and coalesce(n.value_gbp, 0) >= ${minValue}
+    order by ${SORT_CLAUSE[sort]}
+    limit 300`;
 }
 
 /** Client-facing: only the leads the admin chose to share. */
 export async function getSharedLeads(client: string): Promise<LeadRow[]> {
   return sql<LeadRow[]>`
     select ${LEAD_SELECT}
-    from leads l join notices n on n.ocid = l.ocid
+    ${LEAD_FROM}
     where l.client_slug = ${client} and l.shared
     order by l.score desc, l.created_at desc`;
 }
 
 export async function getLead(id: number): Promise<LeadDetail | null> {
   const rows = await sql<LeadDetail[]>`
-    select ${LEAD_SELECT}, n.description, n.cpv_codes, n.source,
-      l.client_slug, l.brief
-    from leads l join notices n on n.ocid = l.ocid
+    select ${LEAD_SELECT}, n.description, n.cpv_codes, n.source, l.brief
+    ${LEAD_FROM}
     where l.id = ${id}`;
   return rows[0] ?? null;
 }

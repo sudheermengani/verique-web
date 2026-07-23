@@ -3,71 +3,81 @@ import { Inbox } from "lucide-react";
 
 import {
   getClients,
-  getClient,
   getLeads,
   getStats,
   LEAD_STATUSES,
+  type LeadSort,
   type LeadStatus,
 } from "@/lib/ops/queries";
 import { formatDate, formatGBP } from "@/lib/ops/format";
 import { StatusBadge } from "@/components/ops/status-badge";
 import { ShareToggle } from "@/components/ops/share-toggle";
+import { LeadFilterBar } from "@/components/ops/lead-filter-bar";
 import { cn } from "@/lib/utils";
 
 const FILTERS = ["new", ...LEAD_STATUSES.filter((s) => s !== "new"), "all"] as const;
+const SORTS = ["score", "newest", "oldest", "value"] as const;
 
 export default async function AdminLeadsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; client?: string }>;
+  searchParams: Promise<{
+    status?: string;
+    client?: string;
+    sort?: string;
+    minScore?: string;
+    minValue?: string;
+  }>;
 }) {
   const params = await searchParams;
   const clients = await getClients();
   if (clients.length === 0) {
-    return <EmptyCard title="No clients yet" body="Run the engine to create one." />;
+    return <EmptyCard title="No clients yet" body="Add one from the Clients page." />;
   }
-  const clientSlug =
-    clients.find((c) => c.slug === params.client)?.slug ?? clients[0].slug;
+
+  const clientSlug = params.client && params.client !== "all"
+    ? (clients.find((c) => c.slug === params.client)?.slug ?? "all")
+    : "all";
   const status = (
     FILTERS.includes(params.status as (typeof FILTERS)[number])
       ? params.status
       : "new"
   ) as LeadStatus | "all";
+  const sort = (
+    SORTS.includes(params.sort as (typeof SORTS)[number]) ? params.sort : "score"
+  ) as LeadSort;
+  const minScore = Number(params.minScore) || 0;
+  const minValue = Number(params.minValue) || 0;
 
-  const [client, stats, leads] = await Promise.all([
-    getClient(clientSlug),
+  const qs = (overrides: Record<string, string>) => {
+    const p = new URLSearchParams({
+      client: clientSlug,
+      status,
+      sort,
+      ...(minScore ? { minScore: String(minScore) } : {}),
+      ...(minValue ? { minValue: String(minValue) } : {}),
+      ...overrides,
+    });
+    return p.toString();
+  };
+
+  const [stats, leads] = await Promise.all([
     getStats(clientSlug),
-    getLeads(clientSlug, status),
+    getLeads({ client: clientSlug, status, sort, minScore, minValue }),
   ]);
+
+  const showClientColumn = clientSlug === "all";
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-heading text-xl font-semibold text-ink">Leads</h1>
-          {clients.length > 1 ? (
-            <nav aria-label="Client" className="mt-1 flex flex-wrap gap-2">
-              {clients.map((c) => (
-                <Link
-                  key={c.slug}
-                  href={`/admin/leads?client=${c.slug}&status=${status}`}
-                  className={cn(
-                    "rounded-md text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                    c.slug === clientSlug
-                      ? "font-medium text-ink"
-                      : "text-slate hover:text-ink",
-                  )}
-                >
-                  {c.name}
-                </Link>
-              ))}
-            </nav>
-          ) : (
-            <p className="mt-1 text-sm text-slate">
-              {client?.name}
-              {client?.category ? ` · ${client.category}` : ""}
-            </p>
-          )}
+          <p className="mt-1 text-sm text-slate">
+            {showClientColumn
+              ? `Across ${clients.length} ${clients.length === 1 ? "client" : "clients"}`
+              : clients.find((c) => c.slug === clientSlug)?.name}
+          </p>
         </div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <StatTile label="Open leads" value={String(stats.open)} />
@@ -77,6 +87,8 @@ export default async function AdminLeadsPage({
         </div>
       </div>
 
+      <LeadFilterBar clients={clients} />
+
       <nav
         aria-label="Filter by status"
         className="flex flex-wrap gap-1 border-b border-line pb-px"
@@ -84,7 +96,7 @@ export default async function AdminLeadsPage({
         {FILTERS.map((f) => (
           <Link
             key={f}
-            href={`/admin/leads?client=${clientSlug}&status=${f}`}
+            href={`/admin/leads?${qs({ status: f })}`}
             aria-current={f === status ? "page" : undefined}
             className={cn(
               "rounded-t-md px-3 py-2 text-sm capitalize focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
@@ -103,7 +115,7 @@ export default async function AdminLeadsPage({
           title={status === "new" ? "All caught up" : `Nothing marked “${status}”`}
           body={
             status === "new"
-              ? "No open leads right now. The next engine run may bring more."
+              ? "No open leads match these filters right now."
               : "Outcomes you log will show up under this filter."
           }
         />
@@ -114,6 +126,9 @@ export default async function AdminLeadsPage({
               <tr className="border-b border-line text-left text-xs text-slate">
                 <th scope="col" className="px-4 py-3 font-medium">Score</th>
                 <th scope="col" className="px-4 py-3 font-medium">Contract</th>
+                {showClientColumn && (
+                  <th scope="col" className="px-4 py-3 font-medium">Client</th>
+                )}
                 <th scope="col" className="px-4 py-3 font-medium">Winner</th>
                 <th scope="col" className="px-4 py-3 text-right font-medium">Value</th>
                 <th scope="col" className="px-4 py-3 font-medium">Awarded</th>
@@ -139,6 +154,16 @@ export default async function AdminLeadsPage({
                       {lead.region_hit ? ` · ${lead.region_hit}` : ""}
                     </p>
                   </td>
+                  {showClientColumn && (
+                    <td className="px-4 py-3 text-xs whitespace-nowrap text-slate">
+                      <Link
+                        href={`/admin/leads?${qs({ client: lead.client_slug })}`}
+                        className="rounded-md hover:text-ink focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                      >
+                        {lead.client_name}
+                      </Link>
+                    </td>
+                  )}
                   <td className="max-w-45 px-4 py-3">
                     <p className="line-clamp-2 text-ink">
                       {lead.winners.map((w) => w.name).join("; ") || "not named"}

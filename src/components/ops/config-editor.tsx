@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { Check, Plus, Trash2 } from "lucide-react";
 
 import {
@@ -115,8 +115,25 @@ export function ConfigEditor({
   );
   const set = (patch: Partial<EditState>) => setE((prev) => ({ ...prev, ...patch }));
 
+  const formRef = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    // After a successful <form action> submission, the browser performs a
+    // native form reset that snaps checkbox `.checked` DOM properties back to
+    // their page-load values — even for ones React considers controlled.
+    // React's diffing then skips re-writing them because its own record of
+    // the value hasn't changed. Force the DOM back in sync with `e` directly.
+    if (!state.ok || !formRef.current) return;
+    const form = formRef.current;
+    const regionCb = form.querySelector<HTMLInputElement>('[data-field="require_region"]');
+    if (regionCb) regionCb.checked = e.require_region;
+    form.querySelectorAll<HTMLInputElement>("[data-source-id]").forEach((el) => {
+      el.checked = e.sources.includes(el.dataset.sourceId!);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
+
   return (
-    <form action={formAction} className="space-y-6">
+    <form ref={formRef} action={formAction} className="space-y-6">
       <input type="hidden" name="slug" value={slug} />
       <input type="hidden" name="config" value={JSON.stringify(toConfig(e))} />
 
@@ -128,6 +145,7 @@ export function ConfigEditor({
             <label key={s.id} className="flex items-center gap-2 text-sm text-ink">
               <input
                 type="checkbox"
+                data-source-id={s.id}
                 checked={e.sources.includes(s.id)}
                 onChange={(ev) =>
                   set({
@@ -178,6 +196,7 @@ export function ConfigEditor({
           <label className="flex items-center gap-2 pb-2 text-sm text-ink">
             <input
               type="checkbox"
+              data-field="require_region"
               checked={e.require_region}
               onChange={(ev) => set({ require_region: ev.target.checked })}
               className="size-4 rounded border-line"

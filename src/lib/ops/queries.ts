@@ -62,11 +62,21 @@ export type LeadRow = {
   enrichment: Enrichment | null;
 };
 
+export type CallBrief = {
+  won: string;
+  mobilisation: string;
+  trades_needed: string[];
+  ask_for: string;
+  opening_line: string;
+  confidence: "high" | "medium" | "low";
+};
+
 export type LeadDetail = LeadRow & {
   description: string;
   cpv_codes: string[];
   source: string;
   client_slug: string;
+  brief: CallBrief | null;
 };
 
 export type LeadEvent = {
@@ -176,7 +186,8 @@ export async function getSharedLeads(client: string): Promise<LeadRow[]> {
 
 export async function getLead(id: number): Promise<LeadDetail | null> {
   const rows = await sql<LeadDetail[]>`
-    select ${LEAD_SELECT}, n.description, n.cpv_codes, n.source, l.client_slug
+    select ${LEAD_SELECT}, n.description, n.cpv_codes, n.source,
+      l.client_slug, l.brief
     from leads l join notices n on n.ocid = l.ocid
     where l.id = ${id}`;
   return rows[0] ?? null;
